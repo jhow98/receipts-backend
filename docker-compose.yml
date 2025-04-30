@@ -1,0 +1,43 @@
+version: '3.8'
+
+services:
+  nestjs_app:
+    build: .
+    container_name: nestjs_app
+    restart: on-failure
+    depends_on:
+      mysql_db:
+        condition: service_healthy
+    environment:
+      DB_HOST: mysql_db
+      DB_PORT: 3306
+      DB_USER: root
+      DB_PASS: password
+      DB_NAME: mydatabase
+      TS_NODE_DEV: 'false'
+    ports:
+      - '3000:3000'
+    volumes:
+      - ./logs:/app/logs
+
+  mysql_db:
+    image: mysql:8.0
+    container_name: mysql_db
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: password
+      MYSQL_DATABASE: mydatabase
+    ports:
+      - '3306:3306'
+    volumes:
+      - mysql_data:/var/lib/mysql
+    healthcheck:
+      test:
+        ['CMD-SHELL', 'mysqladmin ping -h localhost -p$${MYSQL_ROOT_PASSWORD}']
+      interval: 5s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+volumes:
+  mysql_data:

@@ -1,28 +1,9 @@
-import { Injectable, LoggerService } from '@nestjs/common';
-import * as winston from 'winston';
-import 'winston-daily-rotate-file'; 
+import { Injectable, Inject, LoggerService } from '@nestjs/common';
+import { Logger } from 'winston';
 
 @Injectable()
-export class MyLoggerService implements LoggerService {
-  private logger: winston.Logger;
-
-  constructor() {
-    this.logger = winston.createLogger({
-      level: 'info',
-      format: winston.format.combine(
-        winston.format.timestamp(),
-        winston.format.json(),
-      ),
-      transports: [
-        new winston.transports.Console(),
-        new (winston.transports as any).DailyRotateFile({
-          filename: 'logs/application-%DATE%.log',
-          datePattern: 'YYYY-MM-DD',
-          maxFiles: '30d',
-        }),
-      ],
-    });
-  }
+export class AppLogger implements LoggerService {
+  constructor(@Inject('winston') private readonly logger: Logger) {}
 
   log(message: string) {
     this.logger.info(message);
@@ -38,5 +19,9 @@ export class MyLoggerService implements LoggerService {
 
   debug(message: string) {
     this.logger.debug(message);
+  }
+
+  verbose(message: string) {
+    this.logger.verbose(message);
   }
 }

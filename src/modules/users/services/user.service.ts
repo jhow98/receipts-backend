@@ -1,18 +1,25 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { UserRepository } from '../repositories/user.repository';
-import { CreateUserDto } from '../dto/create-user.dto';
+import { UserDto } from '../dto/user.dto';
 import { User } from '../entities/user.entity';
+import { AppLogger } from '../../../common/logger/logger.service';
 
 @Injectable()
 export class UserService {
-  constructor(private readonly userRepository: UserRepository) {}
+  constructor(
+    private readonly userRepository: UserRepository,
+    private readonly logger: AppLogger,
+  ) {}
 
-  async create(createUserDto: CreateUserDto): Promise<User> {
+  async create(userDto: UserDto): Promise<User> {
+    this.logger.log(`Criando usuário com dados: ${JSON.stringify(userDto)}`);
     const user = new User();
-    user.name = createUserDto.name;
-    user.login = createUserDto.login;
-    user.password = createUserDto.password;
-    return await this.userRepository.create(user);
+    user.name = userDto.name;
+    user.login = userDto.login;
+    user.password = userDto.password;
+    const saved = await this.userRepository.create(user);
+    this.logger.log(`Usuário criado com ID ${saved.id}`);
+    return saved;
   }
 
   async findAll(): Promise<User[]> {
@@ -20,6 +27,22 @@ export class UserService {
   }
 
   async findById(id: number): Promise<User | null> {
-    return await this.userRepository.findById(id);
+    const user = await this.userRepository.findById(id);
+    if (!user) {
+      this.logger.warn(`Usuário com ID ${id} não encontrado`);
+      throw new NotFoundException('Usuário não encontrado');
+    }
+    return user;
+  }
+
+  async delete(id: number): Promise<void> {
+    const user = await this.userRepository.findById(id);
+    if (!user) {
+      this.logger.warn(`Usuário com ID ${id} não encontrado para exclusão`);
+      throw new NotFoundException('Usuário não encontrado');
+    }
+
+    await this.userRepository.delete(id);
+    this.logger.log(`Usuário com ID ${id} excluído com sucesso`);
   }
 }

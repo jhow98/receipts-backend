@@ -1,9 +1,11 @@
 import { NestFactory } from '@nestjs/core';
-import { AppModule } from './app.module.js';
+import { AppModule } from './app.module';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { ConfigModule, ConfigService } from '@nestjs/config';
+import { WinstonModule } from 'nest-winston';
+import { winstonConfig } from './common/logger/winston.config';
 
-import { Logger } from '@nestjs/common';
+import { Logger, ValidationPipe } from '@nestjs/common';
 
 ConfigModule.forRoot();
 
@@ -11,13 +13,21 @@ const configService = new ConfigService();
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule, {
-    logger: ['log', 'error', 'warn', 'debug'],
-    });
+    logger: WinstonModule.createLogger(winstonConfig),
+  });
+
+  app.useGlobalPipes(
+    new ValidationPipe({
+      whitelist: true,
+      forbidNonWhitelisted: true,
+      transform: true,
+    }),
+  );
 
   // Configuração do Swagger
   const config = new DocumentBuilder()
-    .setTitle('API de Clientes')
-    .setDescription('Documentação da API do painel administrativo')
+    .setTitle('API de Receitas')
+    .setDescription('Documentação da API de receitas')
     .setVersion('1.0')
     .addTag('clientes')
     .build();
@@ -25,8 +35,6 @@ async function bootstrap() {
   const document = SwaggerModule.createDocument(app, config);
   SwaggerModule.setup('api/docs', app, document);
 
-  
-  // Expor métricas na URL /metrics
   app.enableCors();
   app.enableShutdownHooks();
 

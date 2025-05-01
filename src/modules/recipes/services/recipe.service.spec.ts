@@ -1,8 +1,9 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { RecipeService } from '../src/modules/recipes/services/recipe.service';
-import { RecipeRepository } from '../src/modules/recipes/repositories/recipe.repository';
-import { Recipe } from '../src/modules/recipes/entities/recipe.entity';
-import { RecipeDto } from '../src/modules/recipes/dto/recipe.dto';
+import { RecipeService } from './recipe.service';
+import { RecipeRepository } from '../repositories/recipe.repository';
+import { Recipe } from '../entities/recipe.entity';
+import { RecipeDto } from '../dto/recipe.dto';
+import { AppLogger } from '../../../common/logger/logger.service';
 
 describe('RecipeService', () => {
   let service: RecipeService;
@@ -23,10 +24,17 @@ describe('RecipeService', () => {
       delete: jest.fn(),
     };
 
+    const mockLogger = {
+      log: jest.fn(),
+      warn: jest.fn(),
+      error: jest.fn(),
+    };
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         RecipeService,
         { provide: RecipeRepository, useValue: repo },
+        { provide: AppLogger, useValue: mockLogger },
       ],
     }).compile();
 

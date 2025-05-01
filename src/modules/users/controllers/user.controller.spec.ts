@@ -1,8 +1,9 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { UserController } from '../src/modules/users/controllers/user.controller';
-import { UserService } from '../src/modules/users/services/user.service';
-import { UserDto } from '../src/modules/users/dto/user.dto';
+import { UserController } from './user.controller';
+import { UserService } from '../services/user.service';
+import { UserDto } from '../dto/user.dto';
 import { NotFoundException } from '@nestjs/common';
+import { AppLogger } from '../../../common/logger/logger.service';
 
 describe('UserController', () => {
   let controller: UserController;
@@ -15,10 +16,19 @@ describe('UserController', () => {
     delete: jest.fn(),
   };
 
+  const mockLogger = {
+    log: jest.fn(),
+    warn: jest.fn(),
+    error: jest.fn(),
+  };
+
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       controllers: [UserController],
-      providers: [{ provide: UserService, useValue: mockUserService }],
+      providers: [
+        { provide: UserService, useValue: mockUserService },
+        { provide: AppLogger, useValue: mockLogger },
+      ],
     }).compile();
 
     controller = module.get<UserController>(UserController);

@@ -1,8 +1,9 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { UserService } from '../src/modules/users/services/user.service';
-import { UserRepository } from '../src/modules/users/repositories/user.repository';
-import { UserDto } from '../src/modules/users/dto/user.dto';
+import { UserService } from './user.service';
+import { UserRepository } from '../repositories/user.repository';
+import { UserDto } from '../dto/user.dto';
 import { NotFoundException } from '@nestjs/common';
+import { AppLogger } from '../../../common/logger/logger.service';
 
 describe('UserService', () => {
   let service: UserService;
@@ -15,11 +16,18 @@ describe('UserService', () => {
     delete: jest.fn(),
   };
 
+  const mockLogger = {
+    log: jest.fn(),
+    warn: jest.fn(),
+    error: jest.fn(),
+  };
+
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         UserService,
         { provide: UserRepository, useValue: mockRepo },
+        { provide: AppLogger, useValue: mockLogger }
       ],
     }).compile();
 
@@ -54,11 +62,10 @@ describe('UserService', () => {
     expect(result).toEqual(user);
   });
 
-  it('should return null if user not found', async () => {
-    mockRepo.findById.mockResolvedValueOnce(null);
-
-    const result = await service.findById(999);
-    expect(result).toBeNull();
+  it('should throw NotFoundException if user not found', async () => {
+    mockRepo.findById.mockResolvedValue(null);
+  
+    await expect(service.findById(99)).rejects.toThrow(NotFoundException);
   });
 
   it('should delete user if exists', async () => {

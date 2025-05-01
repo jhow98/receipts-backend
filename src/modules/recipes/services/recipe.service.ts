@@ -4,7 +4,6 @@ import {
   HttpException,
   HttpStatus,
 } from '@nestjs/common';
-import { Counter } from 'prom-client';
 import { RecipeRepository } from '../repositories/recipe.repository';
 import { RecipeDto } from '../dto/recipe.dto';
 import { Recipe } from '../entities/recipe.entity';

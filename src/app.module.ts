@@ -11,9 +11,10 @@ import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { RecipeModule } from './modules/recipes/recipe.module';
 import { LoggerModule } from './common/logger/logger.module';
+import { AuthModule } from './modules/auth/auth.module';
 
 @Module({
-  imports: [DatabaseModule, WinstonModule.forRoot(winstonConfig),LoggerModule, RecipeModule, UserModule,RecipeModule, MetricsModule, ConfigModule.forRoot({
+  imports: [DatabaseModule, AuthModule, WinstonModule.forRoot(winstonConfig),LoggerModule, RecipeModule, UserModule,RecipeModule, MetricsModule, ConfigModule.forRoot({
     isGlobal: true,
   }),],
   controllers: [AppController],

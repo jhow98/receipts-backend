@@ -3,6 +3,8 @@ import { UserRepository } from '../repositories/user.repository';
 import { UserDto } from '../dto/user.dto';
 import { User } from '../entities/user.entity';
 import { AppLogger } from '../../../common/logger/logger.service';
+import * as bcrypt from 'bcrypt';
+import { UserResponseDto } from '../dto/user-response.dto';
 
 @Injectable()
 export class UserService {
@@ -11,15 +13,21 @@ export class UserService {
     private readonly logger: AppLogger,
   ) {}
 
-  async create(userDto: UserDto): Promise<User> {
+  async create(userDto: UserDto): Promise<UserResponseDto> {
     this.logger.log(`Criando usuário com dados: ${JSON.stringify(userDto)}`);
+  
+    const hashedPassword = await bcrypt.hash(userDto.password, 10);
+  
     const user = new User();
     user.name = userDto.name;
     user.login = userDto.login;
-    user.password = userDto.password;
+    user.password = hashedPassword;
+  
     const saved = await this.userRepository.create(user);
     this.logger.log(`Usuário criado com ID ${saved.id}`);
-    return saved;
+  
+    const { password, ...result } = saved;
+    return result as UserResponseDto;
   }
 
   async findAll(): Promise<User[]> {
@@ -33,6 +41,11 @@ export class UserService {
       throw new NotFoundException('Usuário não encontrado');
     }
     return user;
+  }
+
+  async findByLogin(login: string): Promise<User | null> {
+    const user = await this.userRepository.findByLogin(login);
+    return user ?? null;
   }
 
   async delete(id: number): Promise<void> {

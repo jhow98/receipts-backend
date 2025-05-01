@@ -44,7 +44,7 @@ describe('RecipeController (e2e)', () => {
       .post('/users')
       .send({
         name: 'Usuário E2E',
-        login: 'usuario.e2e',
+        login: `usuario.e2e.${Date.now()}`,
         password: 'senha123',
       });
 

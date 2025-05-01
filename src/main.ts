@@ -39,7 +39,7 @@ async function bootstrap() {
   app.enableShutdownHooks();
 
   try {
-    await app.listen(3000);
+    await app.listen(process.env.PORT || 3000);
     Logger.log(`🚀 API rodando em http://localhost:3000`);
     Logger.log(`📊 Métricas disponíveis em http://localhost:3000/metrics`);
   } catch (error) {

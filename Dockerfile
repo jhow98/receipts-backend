@@ -13,5 +13,4 @@ WORKDIR /app
 COPY --from=builder /app /app
 RUN npm install --omit=dev
 
-# Executa migrations e inicia a aplicação
-CMD npm run migration:run && npm run start:prod
+ENTRYPOINT ["sh", "-c", "npm run migration:run && npm run start:prod"]

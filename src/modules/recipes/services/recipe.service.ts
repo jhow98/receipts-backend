@@ -8,7 +8,7 @@ import { RecipeRepository } from '../repositories/recipe.repository';
 import { RecipeDto } from '../dto/recipe.dto';
 import { Recipe } from '../entities/recipe.entity';
 import { AppLogger } from '../../../common/logger/logger.service';
-
+import PDFDocument from 'pdfkit';
 @Injectable()
 export class RecipeService {
   constructor(
@@ -81,5 +81,36 @@ export class RecipeService {
 
     await this.recipeRepository.delete(id);
     this.logger.log(`Receita ID ${id} excluída com sucesso`);
+  }
+
+  async print(id: number): Promise<Buffer> {
+    this.logger.log(`Iniciando impressão da receita ID ${id}`);
+    const recipe = await this.recipeRepository.findById(id);
+    if (!recipe) {
+      this.logger.warn(`Receita com ID ${id} não encontrada para impressão`);
+      throw new NotFoundException(`Receita com ID ${id} não encontrada`);
+    }
+
+    const doc = new PDFDocument();
+    const chunks: Buffer[] = [];
+
+    doc.on('data', (chunk) => chunks.push(chunk));
+    doc.on('end', () => this.logger.log(`PDF da receita ID ${id} gerado com sucesso`));
+
+    doc.fontSize(20).text(`Receita: ${recipe.name}`);
+    doc.moveDown();
+    doc.fontSize(12).text(`Tempo de preparo: ${recipe.preparation_time_minutes} minutos`);
+    doc.text(`Porções: ${recipe.servings}`);
+    doc.moveDown();
+    doc.text(`Ingredientes: ${recipe.ingredients}`);
+    doc.moveDown();
+    doc.text(`Modo de preparo: ${recipe.preparation_method}`);
+    doc.end();
+
+    return new Promise((resolve) => {
+      doc.on('end', () => {
+        resolve(Buffer.concat(chunks));
+      });
+    });
   }
 }

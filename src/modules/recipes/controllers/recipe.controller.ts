@@ -21,6 +21,8 @@ import {
   ApiParam,
   ApiBody,
 } from '@nestjs/swagger';
+import PDFDocument from 'pdfkit';
+import { Stream } from 'stream';
 import { AppLogger } from '../../../common/logger/logger.service';
 
 @ApiTags('Recipes')
@@ -106,5 +108,23 @@ export class RecipeController {
     await this.recipeService.delete(id);
     this.logger.log(`Receita com ID ${id} deletada com sucesso`);
     return res.send();
+  }
+
+  @Get(':id/print')
+  @ApiOperation({ summary: 'Imprime uma receita em PDF' })
+  @ApiParam({ name: 'id', type: Number })
+  @ApiResponse({ status: 200, description: 'PDF gerado com sucesso.' })
+  @ApiResponse({ status: 404, description: 'Receita não encontrada.' })
+  async print(@Param('id') id: number, @Res() res: Response) {
+    this.logger.log(`Recebida requisição para imprimir receita com ID ${id}`);
+    const pdfBuffer = await this.recipeService.print(id);
+  
+    res.set({
+      'Content-Type': 'application/pdf',
+      'Content-Disposition': `attachment; filename=receita-${id}.pdf`,
+      'Content-Length': pdfBuffer.length,
+    });
+  
+    return res.send(pdfBuffer);
   }
 }

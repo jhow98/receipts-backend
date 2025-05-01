@@ -20,7 +20,6 @@ import {
 } from '@nestjs/swagger';
 import { AppLogger } from '../../../common/logger/logger.service';
 import { UserResponseDto } from '../dto/user-response.dto';
-
 @ApiTags('Users')
 @Controller('users')
 export class UserController {

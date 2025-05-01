@@ -3,7 +3,7 @@ import { UserRepository } from '../repositories/user.repository';
 import { UserDto } from '../dto/user.dto';
 import { User } from '../entities/user.entity';
 import { AppLogger } from '../../../common/logger/logger.service';
-import * as bcrypt from 'bcrypt';
+import bcrypt from 'bcrypt';
 import { UserResponseDto } from '../dto/user-response.dto';
 
 @Injectable()

@@ -11,6 +11,6 @@ import { AppLogger } from '../../common/logger/logger.service';
   imports: [TypeOrmModule.forFeature([User]), MetricsModule],
   controllers: [UserController],
   providers: [UserService, UserRepository, AppLogger],
-  exports: [UserService, TypeOrmModule],
+  exports: [UserService, UserRepository, TypeOrmModule],
 })
 export class UserModule {}

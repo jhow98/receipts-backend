@@ -42,7 +42,6 @@ describe('AuthController (e2e)', () => {
   });
 
   afterAll(async () => {
-    // Remove receitas antes de apagar usuários (integridade referencial)
     await dataSource.query(`
       DELETE FROM recipes 
       WHERE user_id IN (
@@ -50,6 +49,7 @@ describe('AuthController (e2e)', () => {
       )
     `);
     await dataSource.query(`DELETE FROM users WHERE login LIKE 'usuario.e2e%'`);
-    await app.close();
-  });
+    if (app) {
+      await app.close();
+    }  });
 });

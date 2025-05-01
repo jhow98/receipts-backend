@@ -26,4 +26,8 @@ export class UserRepository {
   async findByLogin(login: string): Promise<User | null> {
     return await this.userRepo.findOne({ where: { login } });
   }
+
+  async delete(id: number): Promise<void> {
+    await this.userRepo.delete(id);
+  }
 }

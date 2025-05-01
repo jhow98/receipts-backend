@@ -1,4 +1,12 @@
-import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, CreateDateColumn, UpdateDateColumn } from 'typeorm';
+import {
+  Entity,
+  PrimaryGeneratedColumn,
+  Column,
+  ManyToOne,
+  CreateDateColumn,
+  UpdateDateColumn,
+  JoinColumn,
+} from 'typeorm';
 import { User } from '../../users/entities/user.entity';
 import { Category } from '../../categories/entities/category.entity';
 
@@ -7,30 +15,32 @@ export class Recipe {
   @PrimaryGeneratedColumn()
   id: number;
 
-  @ManyToOne(() => User, user => user.recipes)
+  @ManyToOne(() => User, user => user.recipes, { eager: false })
+  @JoinColumn({ name: 'user_id' })
   user: User;
 
-  @ManyToOne(() => Category)
+  @ManyToOne(() => Category, { eager: false })
+  @JoinColumn({ name: 'category_id' })
   category: Category;
 
   @Column({ length: 45 })
   name: string;
 
   @Column({ name: 'preparation_time_minutes', type: 'int' })
-  preparationTimeMinutes: number;
+  preparation_time_minutes: number;
 
   @Column({ type: 'int' })
   servings: number;
 
   @Column({ name: 'preparation_method', type: 'text' })
-  preparationMethod: string;
+  preparation_method: string;
 
   @Column({ type: 'text' })
   ingredients: string;
 
   @CreateDateColumn({ name: 'created_at' })
-  createdAt: Date;
+  created_at: Date;
 
   @UpdateDateColumn({ name: 'updated_at' })
-  updatedAt: Date;
+  updated_at: Date;
 }

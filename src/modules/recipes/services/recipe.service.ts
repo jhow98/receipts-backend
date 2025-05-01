@@ -4,16 +4,20 @@ import {
   HttpException,
   HttpStatus,
 } from '@nestjs/common';
+import { Counter } from 'prom-client';
 import { RecipeRepository } from '../repositories/recipe.repository';
 import { RecipeDto } from '../dto/recipe.dto';
 import { Recipe } from '../entities/recipe.entity';
 import { AppLogger } from '../../../common/logger/logger.service';
 import PDFDocument from 'pdfkit';
+import { MetricsService } from '../../../common/metrics/metrics.service';
+
 @Injectable()
 export class RecipeService {
   constructor(
     private readonly recipeRepository: RecipeRepository,
     private readonly logger: AppLogger,
+    private readonly metricsService: MetricsService,
   ) {}
 
   async findAll(): Promise<Recipe[]> {
@@ -40,9 +44,11 @@ export class RecipeService {
         category: { id: data.categoryId },
       } as any);
       this.logger.log(`Receita criada com sucesso: ${JSON.stringify(created)}`);
+      this.metricsService.incrementarReceitasCriadas();
       return created;
     } catch (err) {
       this.logger.error('Erro ao salvar receita no banco', err.stack);
+      this.metricsService.incrementarFalhasReceita();
       throw new HttpException('Erro ao criar receita', HttpStatus.BAD_REQUEST);
     }
   }

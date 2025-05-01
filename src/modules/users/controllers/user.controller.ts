@@ -20,12 +20,15 @@ import {
 } from '@nestjs/swagger';
 import { AppLogger } from '../../../common/logger/logger.service';
 import { UserResponseDto } from '../dto/user-response.dto';
+import { MetricsService } from '../../../common/metrics/metrics.service';
 @ApiTags('Users')
 @Controller('users')
 export class UserController {
   constructor(
     private readonly userService: UserService,
     private readonly logger: AppLogger,
+    private readonly metricsService: MetricsService,
+    
   ) {}
 
   @Post()
@@ -40,6 +43,7 @@ export class UserController {
     this.logger.log(`Recebida requisição para criar usuário: ${JSON.stringify(createUserDto)}`);
     const result = await this.userService.create(createUserDto);
     this.logger.log(`Usuário criado com sucesso: ${JSON.stringify(result)}`);
+    this.metricsService.incrementarUsuariosCriados();
     return result;
   }
 

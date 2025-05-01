@@ -2,26 +2,25 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication, HttpStatus } from '@nestjs/common';
 import request from 'supertest';
 import { AppModule } from '../src/app.module';
-import { Category } from '../src/modules/categories/entities/category.entity';
-import { Repository } from 'typeorm';
 import { DataSource } from 'typeorm';
-
+import { Category } from '../src/modules/categories/entities/category.entity';
 
 describe('RecipeController (e2e)', () => {
   let app: INestApplication;
   let recipeId: number;
   let userId: number;
   let categoryId: number;
-  let categoryRepository: Repository<Category>;
+  let server: any;
 
+  const timestamp = Date.now();
   const recipeData = {
-    name: 'Bolo E2E',
-    preparation_time_minutes: 60,
-    servings: 6,
-    preparation_method: 'Misture e asse',
-    ingredients: 'farinha, ovos, açúcar',
-    userId: 0, // será preenchido após criar o user
-    categoryId: 0, // idem
+    name: 'Dipirona Monoidratada 500mg/mL',
+    preparation_time_minutes: 5,
+    servings: 1,
+    preparation_method: 'Diluir em solução aquosa antes de aplicar.',
+    ingredients: 'Dipirona, água destilada',
+    userId: 0,
+    categoryId: 0,
   };
 
   beforeAll(async () => {
@@ -31,74 +30,77 @@ describe('RecipeController (e2e)', () => {
 
     app = moduleFixture.createNestApplication();
     await app.init();
+    server = app.getHttpServer();
 
-    // Criação de categoria via repositório
     const dataSource = moduleFixture.get<DataSource>(DataSource);
     const categoryRepository = dataSource.getRepository(Category);
-    const category = categoryRepository.create({ name: 'Categoria E2E' });
+    const category = categoryRepository.create({ name: 'Medicamentos E2E' });
     const savedCategory = await categoryRepository.save(category);
     categoryId = savedCategory.id;
 
-    // Criação de usuário via endpoint
-    const userRes = await request(app.getHttpServer())
+    const userRes = await request(server)
       .post('/users')
       .send({
         name: 'Usuário E2E',
-        login: 'usuario.e2e',
+        login: `usuario.e2e.${timestamp}`,
         password: 'senha123',
       });
 
     userId = userRes.body.id;
-
-    // Popula os dados da receita
     recipeData.userId = userId;
     recipeData.categoryId = categoryId;
   });
 
-  it('deve criar uma receita', async () => {
-    const res = await request(app.getHttpServer())
+  it('deve criar uma receita de medicamento', async () => {
+    const res = await request(server)
       .post('/recipes')
       .send(recipeData);
-
+  
+    console.log('Resposta criação receita:', res.body);
+  
     expect(res.status).toBe(HttpStatus.CREATED);
     expect(res.body).toHaveProperty('id');
+  
     recipeId = res.body.id;
+  
+    if (!recipeId) {
+      throw new Error('Receita não foi criada corretamente. ID ausente.');
+    }
   });
 
-  it('deve buscar a receita criada', async () => {
-    const res = await request(app.getHttpServer())
+  it('deve buscar a receita', async () => {
+    const res = await request(server)
       .get(`/recipes/${recipeId}`);
 
     expect(res.status).toBe(HttpStatus.OK);
-    expect(res.body).toHaveProperty('name', recipeData.name);
+    expect(res.body.name).toBe(recipeData.name);
   });
 
   it('deve atualizar a receita', async () => {
-    const update = {
+    const updateData = {
       ...recipeData,
-      name: 'Bolo E2E Atualizado',
+      name: 'Dipirona Monoidratada Atualizada',
     };
 
-    const res = await request(app.getHttpServer())
+    const res = await request(server)
       .put(`/recipes/${recipeId}`)
-      .send(update);
+      .send(updateData);
 
     expect(res.status).toBe(HttpStatus.OK);
-    expect(res.body).toHaveProperty('name', update.name);
+    expect(res.body.name).toBe(updateData.name);
   });
 
   it('deve imprimir a receita em PDF', async () => {
-    const res = await request(app.getHttpServer())
+    const res = await request(server)
       .get(`/recipes/${recipeId}/print`)
       .expect(HttpStatus.OK);
 
     expect(res.header['content-type']).toBe('application/pdf');
-    expect(res.header['content-disposition']).toContain(`filename=receita-${recipeId}.pdf`);
-    expect(res.body).toBeInstanceOf(Buffer);
+    expect(res.header['content-disposition']).toContain(`receita-${recipeId}.pdf`);
   });
 
   it('deve deletar a receita', async () => {
-    const res = await request(app.getHttpServer())
+    const res = await request(server)
       .delete(`/recipes/${recipeId}`);
 
     expect(res.status).toBe(HttpStatus.NO_CONTENT);

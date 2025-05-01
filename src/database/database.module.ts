@@ -19,6 +19,7 @@ import { join } from 'path';
       entities: [__dirname + '/../**/*.entity{.ts,.js}'],
       migrations: [join(__dirname, '..', '..', 'migrations', '*.{ts,js}')],
       synchronize: false,
+      charset: 'utf8mb4',
       logging: true,
       autoLoadEntities: true,
     }),

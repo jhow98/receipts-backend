@@ -19,7 +19,7 @@ import {
   ApiBody,
 } from '@nestjs/swagger';
 import { AppLogger } from '../../../common/logger/logger.service';
-
+import { UserResponseDto } from '../dto/user-response.dto';
 @ApiTags('Users')
 @Controller('users')
 export class UserController {
@@ -30,9 +30,13 @@ export class UserController {
 
   @Post()
   @ApiOperation({ summary: 'Create a new user' })
-  @ApiResponse({ status: 201, description: 'User successfully created' })
+  @ApiResponse({
+    status: 201,
+    description: 'User successfully created',
+    type: UserResponseDto,
+  })
   @ApiBody({ type: UserDto })
-  async create(@Body() createUserDto: UserDto): Promise<User> {
+  async create(@Body() createUserDto: UserDto): Promise<UserResponseDto> {
     this.logger.log(`Recebida requisição para criar usuário: ${JSON.stringify(createUserDto)}`);
     const result = await this.userService.create(createUserDto);
     this.logger.log(`Usuário criado com sucesso: ${JSON.stringify(result)}`);

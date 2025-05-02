@@ -14,6 +14,7 @@
     "migration:generate": "npm run typeorm migration:generate -d ./src/database/data-source.ts -n",
     "migration:run": "npm run build && ts-node --esm -r tsconfig-paths/register ./node_modules/typeorm/cli.js -d ./dist/database/data-source.js migration:run",
     "migration:revert": "ts-node --esm -r tsconfig-paths/register ./node_modules/typeorm/cli.js -d ./dist/database/data-source.js migration:revert",
+    "migration:run:local": "cross-env DB_HOST=localhost npm run migration:run",
     "test": "jest",
     "test:watch": "jest --watch",
     "test:cov": "jest --coverage",

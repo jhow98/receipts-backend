@@ -91,7 +91,7 @@ Disponíveis em `/metrics`:
 
 - Gerar:
 ```bash
-npm run migration:generate -- src/database/migrations/NomeDaMigration
+npm run typeorm migration:create src/database/migrations/NomeDaMigration
 ```
 
 - Rodar:

@@ -12,11 +12,19 @@ export class RecipeRepository {
     private readonly ormRepository: Repository<Recipe>,
   ) {}
 
-  async findAll(): Promise<Recipe[]> {
-    this.logger.log('RecipeRepository.findAll: Buscando todas as receitas com relações.');
-    return this.ormRepository.find({
-      relations: ['user', 'category'],
-    });
+  async findAllByUser(userId: number): Promise<Partial<Recipe>[]> {
+    this.logger.log(`RecipeRepository.findAllByUser: Buscando receitas do usuário ${userId}`);
+  
+    return this.ormRepository
+      .createQueryBuilder('recipe')
+      .select([
+        'recipe.id',
+        'recipe.name',
+        'recipe.preparation_time_minutes',
+        'recipe.servings',
+      ])
+      .where('recipe.userId = :userId', { userId })
+      .getMany();
   }
 
   async findById(id: number): Promise<Recipe | null> {

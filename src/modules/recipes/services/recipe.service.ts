@@ -19,9 +19,9 @@ export class RecipeService {
     private readonly metricsService: MetricsService,
   ) {}
 
-  async findAll(): Promise<Recipe[]> {
-    this.logger.log('Buscando todas as receitas');
-    return await this.recipeRepository.findAll();
+  async findAllByUser(userId: number) {
+    this.logger.log(`Buscando todas as receitas do usuário ${userId}`);
+    return this.recipeRepository.findAllByUser(userId);
   }
 
   async findById(id: number): Promise<Recipe> {

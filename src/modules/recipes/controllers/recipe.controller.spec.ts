@@ -4,10 +4,11 @@ import { RecipeService } from '../services/recipe.service';
 import { RecipeDto } from '../dto/recipe.dto';
 import { AppLogger } from '../../../common/logger/logger.service';
 import { Response } from 'express';
+import { MetricsService } from '../../../common/metrics/metrics.service';
 
 const mockService = {
   create: jest.fn(),
-  findAll: jest.fn(),
+  findAllByUser: jest.fn(),
   findById: jest.fn(),
   update: jest.fn(),
   delete: jest.fn(),
@@ -19,6 +20,11 @@ const mockLogger = {
   warn: jest.fn(),
 };
 
+const mockMetrics = {
+  incrementarReceitasCriadas: jest.fn(),
+  incrementarFalhasCriacao: jest.fn(),
+};
+
 describe('RecipeController', () => {
   let controller: RecipeController;
 
@@ -28,6 +34,7 @@ describe('RecipeController', () => {
       providers: [
         { provide: RecipeService, useValue: mockService },
         { provide: AppLogger, useValue: mockLogger },
+        { provide: MetricsService, useValue: mockMetrics },
       ],
     }).compile();
 
@@ -60,20 +67,58 @@ describe('RecipeController', () => {
   it('should print a recipe and return a PDF buffer', async () => {
     const mockPdf = Buffer.from('PDF content');
     mockService.print.mockResolvedValue(mockPdf);
-  
+
     const reqId = 1;
     const res: Partial<Response> = {
       set: jest.fn().mockReturnThis(),
       send: jest.fn(),
     };
-  
+
     await controller.print(reqId, res as Response);
-  
+
     expect(mockService.print).toHaveBeenCalledWith(reqId);
     expect(res.set).toHaveBeenCalledWith(expect.objectContaining({
       'Content-Type': 'application/pdf',
       'Content-Disposition': `attachment; filename=receita-${reqId}.pdf`,
     }));
     expect(res.send).toHaveBeenCalledWith(mockPdf);
+  });
+
+  it('should return 204 if no recipes found for user', async () => {
+    const req = { user: { id: 1 } };
+    const res = {
+      status: jest.fn().mockReturnThis(),
+      json: jest.fn(),
+      send: jest.fn(),
+    } as unknown as Response;
+
+    mockService.findAllByUser.mockResolvedValue([]);
+
+    await controller.findAll(req as any, res);
+
+    expect(mockService.findAllByUser).toHaveBeenCalledWith(1);
+    expect(res.status).toHaveBeenCalledWith(204);
+    expect(res.send).toHaveBeenCalled();
+  });
+
+  it('should return recipes for the logged user', async () => {
+    const mockRecipes = [
+      { name: 'Arroz', preparation_time_minutes: 30, servings: 4 },
+    ];
+
+    const req = { user: { id: 1 } };
+    const res = {
+      status: jest.fn().mockReturnThis(),
+      json: jest.fn(),
+      send: jest.fn(),
+    } as unknown as Response;
+
+    mockService.findAllByUser.mockResolvedValue(mockRecipes);
+
+    await controller.findAll(req as any, res);
+
+    expect(mockService.findAllByUser).toHaveBeenCalledWith(1);
+    expect(res.status).toHaveBeenCalledWith(200);
+    expect(res.json).toHaveBeenCalledWith(mockRecipes);
   });
 });

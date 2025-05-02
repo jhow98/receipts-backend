@@ -5,11 +5,12 @@ import { Recipe } from '../entities/recipe.entity';
 import { RecipeDto } from '../dto/recipe.dto';
 import { AppLogger } from '../../../common/logger/logger.service';
 import { NotFoundException } from '@nestjs/common';
+import { MetricsService } from '../../../common/metrics/metrics.service';
 
 describe('RecipeService', () => {
   let service: RecipeService;
   let repo: {
-    findAll: jest.Mock;
+    findAllByUser: jest.Mock;
     findById: jest.Mock;
     create: jest.Mock;
     update: jest.Mock;
@@ -18,7 +19,7 @@ describe('RecipeService', () => {
 
   beforeEach(async () => {
     repo = {
-      findAll: jest.fn(),
+      findAllByUser: jest.fn(),
       findById: jest.fn(),
       create: jest.fn(),
       update: jest.fn(),
@@ -31,23 +32,30 @@ describe('RecipeService', () => {
       error: jest.fn(),
     };
 
+    const mockMetricsService = {
+      incrementarReceitasCriadas: jest.fn(),
+      incrementarFalhasCriacao: jest.fn(),
+    };
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         RecipeService,
         { provide: RecipeRepository, useValue: repo },
         { provide: AppLogger, useValue: mockLogger },
+        { provide: MetricsService, useValue: mockMetricsService },
       ],
     }).compile();
 
     service = module.get<RecipeService>(RecipeService);
   });
 
-  it('should return all recipes', async () => {
+  it('should return recipes for user', async () => {
     const mockRecipe: Recipe = { id: 1 } as Recipe;
-    repo.findAll.mockResolvedValue([mockRecipe]);
+    repo.findAllByUser.mockResolvedValue([mockRecipe]);
 
-    const result = await service.findAll();
+    const result = await service.findAllByUser(1);
     expect(result).toEqual([mockRecipe]);
+    expect(repo.findAllByUser).toHaveBeenCalledWith(1);
   });
 
   it('should return a recipe by id', async () => {
@@ -73,6 +81,7 @@ describe('RecipeService', () => {
       userId: 1,
       categoryId: 1,
     };
+
     const mockRecipe: Partial<Recipe> = {
       id: 1,
       ...dto,
@@ -117,8 +126,20 @@ describe('RecipeService', () => {
       ...dto,
       created_at: new Date(),
       updated_at: new Date(),
-      user: { id: 1, name: 'User', login: 'u', password: '', createdAt: new Date(), updatedAt: new Date(), recipes: [] },
-      category: { id: 1, name: 'Category', recipes: [] },
+      user: {
+        id: 1,
+        name: 'User',
+        login: 'u',
+        password: '',
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        recipes: [],
+      },
+      category: {
+        id: 1,
+        name: 'Category',
+        recipes: [],
+      },
     };
 
     repo.findById.mockResolvedValue(existing);

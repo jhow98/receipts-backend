@@ -10,6 +10,7 @@ import {
   Post,
   Put,
   Res,
+  Req,
 } from '@nestjs/common';
 import { Response } from 'express';
 import { RecipeService } from '../services/recipe.service';
@@ -21,8 +22,6 @@ import {
   ApiParam,
   ApiBody,
 } from '@nestjs/swagger';
-import PDFDocument from 'pdfkit';
-import { Stream } from 'stream';
 import { AppLogger } from '../../../common/logger/logger.service';
 
 @ApiTags('Recipes')
@@ -46,16 +45,22 @@ export class RecipeController {
   }
 
   @Get()
-  @ApiOperation({ summary: 'List all recipes' })
+  @ApiOperation({ summary: 'List all recipes of the logged-in user' })
   @ApiResponse({ status: 200, description: 'List of recipes returned.' })
   @ApiResponse({ status: 204, description: 'No recipes found.' })
-  async findAll(@Res() res: Response) {
-    this.logger.log('Recebida requisição para listar todas as receitas');
-    const recipes = await this.recipeService.findAll();
+  async findAll(
+    @Req() req: Request & { user: { id: number } },
+    @Res() res: Response,
+  ) {
+    const userId = req.user.id;
+    this.logger.log(`Recebida requisição para listar receitas do usuário ${userId}`);
+  
+    const recipes = await this.recipeService.findAllByUser(userId);
     if (!recipes.length) {
       this.logger.log('Nenhuma receita encontrada');
       return res.status(HttpStatus.NO_CONTENT).send();
     }
+  
     this.logger.log(`Retornando ${recipes.length} receitas`);
     return res.status(HttpStatus.OK).json(recipes);
   }

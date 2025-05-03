@@ -6,6 +6,7 @@ import {
   CreateDateColumn,
   UpdateDateColumn,
   JoinColumn,
+  RelationId,
 } from 'typeorm';
 import { User } from '../../users/entities/user.entity';
 import { Category } from '../../categories/entities/category.entity';
@@ -15,13 +16,19 @@ export class Recipe {
   @PrimaryGeneratedColumn()
   id: number;
 
-  @ManyToOne(() => User, user => user.recipes, { eager: false })
+  @ManyToOne(() => User, (user) => user.recipes, { eager: false })
   @JoinColumn({ name: 'user_id' })
   user: User;
+
+  @RelationId((recipe: Recipe) => recipe.user)
+  userId: number;
 
   @ManyToOne(() => Category, { eager: false })
   @JoinColumn({ name: 'category_id' })
   category: Category;
+
+  @RelationId((recipe: Recipe) => recipe.category)
+  categoryId: number;
 
   @Column({ length: 45 })
   name: string;

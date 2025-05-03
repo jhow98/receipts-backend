@@ -4,6 +4,7 @@ import { UserService } from '../services/user.service';
 import { UserDto } from '../dto/user.dto';
 import { NotFoundException } from '@nestjs/common';
 import { AppLogger } from '../../../common/logger/logger.service';
+import { MetricsService } from '../../../common/metrics/metrics.service';
 
 describe('UserController', () => {
   let controller: UserController;
@@ -22,12 +23,17 @@ describe('UserController', () => {
     error: jest.fn(),
   };
 
+  const mockMetricsService = {
+    incrementarUsuariosCriados: jest.fn(),
+  };
+
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       controllers: [UserController],
       providers: [
         { provide: UserService, useValue: mockUserService },
         { provide: AppLogger, useValue: mockLogger },
+        { provide: MetricsService, useValue: mockMetricsService },
       ],
     }).compile();
 

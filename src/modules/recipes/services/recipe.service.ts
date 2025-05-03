@@ -19,9 +19,22 @@ export class RecipeService {
     private readonly metricsService: MetricsService,
   ) {}
 
-  async findAll(): Promise<Recipe[]> {
-    this.logger.log('Buscando todas as receitas');
-    return await this.recipeRepository.findAll();
+  async findAllByUser(userId: number): Promise<any[]> {
+    this.logger.log(`Buscando todas as receitas do usuário ${userId}`);
+    const recipes = await this.recipeRepository.findAllByUser(userId);
+
+    return recipes.map((r) => ({
+      id: r.id,
+      name: r.name,
+      preparation_time_minutes: r.preparation_time_minutes,
+      servings: r.servings,
+      preparation_method: r.preparation_method,
+      ingredients: r.ingredients,
+      categoryId: r.category?.id,
+      userId: r.user.id,
+      created_at: r.created_at,
+      updated_at: r.updated_at,
+    }));
   }
 
   async findById(id: number): Promise<Recipe> {
@@ -34,7 +47,7 @@ export class RecipeService {
     return recipe;
   }
 
-  async create(data: RecipeDto): Promise<Recipe> {
+  async create(data: RecipeDto & { userId: number }): Promise<Recipe> {
     this.logger.log(`Iniciando criação da receita: ${JSON.stringify(data)}`);
     try {
       const created = await this.recipeRepository.create({
@@ -53,58 +66,30 @@ export class RecipeService {
   }
 
   async update(id: number, data: RecipeDto): Promise<Recipe> {
-    this.logger.log(
-      `Iniciando atualização da receita ID ${id} com dados: ${JSON.stringify(data)}`,
-    );
+    this.logger.log(`Atualizando receita ${id}: ${JSON.stringify(data)}`);
 
-    const recipe = await this.recipeRepository.findById(id);
-    if (!recipe) {
-      this.logger.warn(`Receita com ID ${id} não encontrada para atualização`);
-      throw new NotFoundException(`Receita com ID ${id} não encontrada`);
+    const { categoryId, ...rest } = data as any;
+    const toUpdate: any = { ...rest };
+    if (categoryId !== undefined) {
+      toUpdate.category = { id: categoryId };
     }
 
-    const { userId, categoryId, ...rest } = data;
-
-    const updated = await this.recipeRepository.update(id, {
-      ...rest,
-      user: { id: userId },
-      category: { id: categoryId },
-    } as any);
-
-    this.logger.log(`Receita ID ${id} atualizada com sucesso`);
+    const updated = await this.recipeRepository.update(id, toUpdate);
     return updated;
   }
 
-  async delete(id: number): Promise<void> {
-    this.logger.log(`Iniciando exclusão da receita ID ${id}`);
-
-    const exists = await this.recipeRepository.findById(id);
-    if (!exists) {
-      this.logger.warn(`Receita com ID ${id} não encontrada para exclusão`);
-      throw new NotFoundException(`Receita com ID ${id} não encontrada`);
-    }
-
+  async remove(id: number): Promise<void> {
+    this.logger.log(`Removendo receita ${id}`);
     await this.recipeRepository.delete(id);
-    this.logger.log(`Receita ID ${id} excluída com sucesso`);
   }
 
   async print(id: number): Promise<Buffer> {
-    this.logger.log(`Iniciando impressão da receita ID ${id}`);
-    const recipe = await this.recipeRepository.findById(id);
-    if (!recipe) {
-      this.logger.warn(`Receita com ID ${id} não encontrada para impressão`);
-      throw new NotFoundException(`Receita com ID ${id} não encontrada`);
-    }
-
-    const doc = new PDFDocument();
+    const recipe = await this.findById(id);
     const chunks: Buffer[] = [];
-
+    const doc = new PDFDocument();
     doc.on('data', (chunk) => chunks.push(chunk));
-    doc.on('end', () => this.logger.log(`PDF da receita ID ${id} gerado com sucesso`));
-
-    doc.fontSize(20).text(`Receita: ${recipe.name}`);
+    doc.text(`Receita: ${recipe.name}`);
     doc.moveDown();
-    doc.fontSize(12).text(`Tempo de preparo: ${recipe.preparation_time_minutes} minutos`);
     doc.text(`Porções: ${recipe.servings}`);
     doc.moveDown();
     doc.text(`Ingredientes: ${recipe.ingredients}`);
@@ -112,10 +97,8 @@ export class RecipeService {
     doc.text(`Modo de preparo: ${recipe.preparation_method}`);
     doc.end();
 
-    return new Promise((resolve) => {
-      doc.on('end', () => {
-        resolve(Buffer.concat(chunks));
-      });
-    });
+    return new Promise((resolve) =>
+      doc.on('end', () => resolve(Buffer.concat(chunks))),
+    );
   }
 }

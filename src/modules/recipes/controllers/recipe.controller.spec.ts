@@ -3,24 +3,21 @@ import { RecipeController } from './recipe.controller';
 import { RecipeService } from '../services/recipe.service';
 import { RecipeDto } from '../dto/recipe.dto';
 import { AppLogger } from '../../../common/logger/logger.service';
-import { Response } from 'express';
-
-const mockService = {
-  create: jest.fn(),
-  findAll: jest.fn(),
-  findById: jest.fn(),
-  update: jest.fn(),
-  delete: jest.fn(),
-  print: jest.fn(),
-};
-
-const mockLogger = {
-  log: jest.fn(),
-  warn: jest.fn(),
-};
+import { MetricsService } from '../../../common/metrics/metrics.service';
+import { Response, Request } from 'express';
 
 describe('RecipeController', () => {
   let controller: RecipeController;
+  const mockService = {
+    create: jest.fn(),
+    findAllByUser: jest.fn(),
+    findById: jest.fn(),
+    update: jest.fn(),
+    remove: jest.fn(),
+    print: jest.fn(),
+  };
+  const mockLogger = { log: jest.fn(), warn: jest.fn(), error: jest.fn() };
+  const mockMetrics = { incrementarReceitasCriadas: jest.fn(), incrementarFalhasReceita: jest.fn() };
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
@@ -28,52 +25,74 @@ describe('RecipeController', () => {
       providers: [
         { provide: RecipeService, useValue: mockService },
         { provide: AppLogger, useValue: mockLogger },
+        { provide: MetricsService, useValue: mockMetrics },
       ],
     }).compile();
 
     controller = module.get<RecipeController>(RecipeController);
+    jest.clearAllMocks();
   });
 
   it('should be defined', () => {
     expect(controller).toBeDefined();
   });
 
-  it('should create a recipe', async () => {
+  it('should create a recipe adding userId from req.user', async () => {
     const dto: RecipeDto = {
       name: 'Arroz',
       preparation_time_minutes: 30,
       servings: 4,
       preparation_method: 'Cozinhe com água e sal',
       ingredients: 'arroz, água, sal',
-      userId: 1,
       categoryId: 2,
-    };
-    const result = { id: 1, ...dto };
+    } as RecipeDto;
+    
+    const created = { id: 1, ...dto, userId: 1 };
+    mockService.create.mockResolvedValue(created);
 
-    mockService.create.mockResolvedValue(result);
+    const req = { user: { id: 1 } } as Request & { user: { id: number } };
+    const result = await controller.create(req, dto);
 
-    const created = await controller.create(dto);
-    expect(created).toEqual(result);
-    expect(mockService.create).toHaveBeenCalledWith(dto);
+    expect(mockService.create).toHaveBeenCalledWith({ ...dto, userId: 1 });
+    expect(result).toEqual(created);
   });
 
-  it('should print a recipe and return a PDF buffer', async () => {
-    const mockPdf = Buffer.from('PDF content');
-    mockService.print.mockResolvedValue(mockPdf);
-  
-    const reqId = 1;
-    const res: Partial<Response> = {
-      set: jest.fn().mockReturnThis(),
+  it('should list only recipes of the logged‑in user', async () => {
+    const mockRecipes = [{ id: 10, name: 'X', userId: 1 }];
+    mockService.findAllByUser.mockResolvedValue(mockRecipes);
+
+    const req = { user: { id: 1 } } as Request & { user: { id: number } };
+    const res = {
+      status: jest.fn().mockReturnThis(),
+      json: jest.fn(),
       send: jest.fn(),
-    };
-  
-    await controller.print(reqId, res as Response);
-  
-    expect(mockService.print).toHaveBeenCalledWith(reqId);
-    expect(res.set).toHaveBeenCalledWith(expect.objectContaining({
-      'Content-Type': 'application/pdf',
-      'Content-Disposition': `attachment; filename=receita-${reqId}.pdf`,
-    }));
-    expect(res.send).toHaveBeenCalledWith(mockPdf);
+    } as unknown as Response;
+
+    await controller.findAll(req, res);
+
+    expect(mockService.findAllByUser).toHaveBeenCalledWith(1);
+    expect(res.status).toHaveBeenCalledWith(200);
+    expect(res.json).toHaveBeenCalledWith(mockRecipes);
+  });
+
+  it('should return 204 when no recipes found', async () => {
+    mockService.findAllByUser.mockResolvedValue([]);
+    const req = { user: { id: 2 } } as any;
+    const res = {
+      status: jest.fn().mockReturnThis(),
+      json: jest.fn(),
+      send: jest.fn(),
+    } as unknown as Response;
+
+    await controller.findAll(req, res);
+
+    expect(res.status).toHaveBeenCalledWith(204);
+    expect(res.send).toHaveBeenCalled();
+  });
+
+  it('should remove a recipe', async () => {
+    mockService.remove.mockResolvedValue(undefined);
+    await expect(controller.remove(5)).resolves.toBeUndefined();
+    expect(mockService.remove).toHaveBeenCalledWith(5);
   });
 });

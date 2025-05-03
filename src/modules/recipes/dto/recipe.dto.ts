@@ -1,4 +1,4 @@
-import { ApiProperty } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 import {
   IsInt,
@@ -39,10 +39,14 @@ export class RecipeDto {
   @ApiProperty({ example: 'cenoura, farinha, ovos', description: 'Ingredientes da receita' })
   ingredients: string;
 
+  @IsOptional()
   @IsInt()
   @Type(() => Number)
-  @ApiProperty({ example: 1, description: 'ID do usuário que cadastrou a receita' })
-  userId: number;
+  @ApiPropertyOptional({           
+    example: 1,
+    description: 'ID do usuário — não enviar, será preenchido pelo servidor',
+  })
+  userId?: number;
 
   @IsInt()
   @Type(() => Number)

@@ -10,6 +10,8 @@ import { Recipe } from '../entities/recipe.entity';
 import { AppLogger } from '../../../common/logger/logger.service';
 import PDFDocument from 'pdfkit';
 import { MetricsService } from '../../../common/metrics/metrics.service';
+import { User } from '../../users/entities/user.entity';
+import { Category } from '../../categories/entities/category.entity';
 
 @Injectable()
 export class RecipeService {
@@ -50,11 +52,23 @@ export class RecipeService {
   async create(data: RecipeDto & { userId: number }): Promise<Recipe> {
     this.logger.log(`Iniciando criação da receita: ${JSON.stringify(data)}`);
     try {
-      const created = await this.recipeRepository.create({
-        ...data,
-        user: { id: data.userId },
-        category: { id: data.categoryId },
-      } as any);
+      const user = new User();
+      user.id = data.userId;
+
+      const category = new Category();
+      category.id = data.categoryId;
+
+      const toCreate: Partial<Recipe> = {
+        name: data.name,
+        preparation_time_minutes: data.preparation_time_minutes,
+        servings: data.servings,
+        preparation_method: data.preparation_method,
+        ingredients: data.ingredients,
+        user,
+        category,
+      };
+
+      const created = await this.recipeRepository.createAndSave(toCreate);
       this.logger.log(`Receita criada com sucesso: ${JSON.stringify(created)}`);
       this.metricsService.incrementarReceitasCriadas();
       return created;
@@ -68,19 +82,37 @@ export class RecipeService {
   async update(id: number, data: RecipeDto): Promise<Recipe> {
     this.logger.log(`Atualizando receita ${id}: ${JSON.stringify(data)}`);
 
-    const { categoryId, ...rest } = data as any;
-    const toUpdate: any = { ...rest };
-    if (categoryId !== undefined) {
-      toUpdate.category = { id: categoryId };
+    const toUpdate: Partial<Recipe> = {
+      name: data.name,
+      preparation_time_minutes: data.preparation_time_minutes,
+      servings: data.servings,
+      preparation_method: data.preparation_method,
+      ingredients: data.ingredients,
+    };
+
+    if (data.categoryId !== undefined) {
+      const category = new Category();
+      category.id = data.categoryId;
+      toUpdate.category = category;
     }
 
-    const updated = await this.recipeRepository.update(id, toUpdate);
-    return updated;
+    try {
+      const updated = await this.recipeRepository.updateAndGet(id, toUpdate);
+      return updated;
+    } catch (err) {
+      this.logger.error(`Erro ao atualizar receita ${id}`, err.stack);
+      throw new HttpException('Erro ao atualizar receita', HttpStatus.BAD_REQUEST);
+    }
   }
 
   async remove(id: number): Promise<void> {
     this.logger.log(`Removendo receita ${id}`);
-    await this.recipeRepository.delete(id);
+    const recipe = await this.recipeRepository.findById(id);
+    if (!recipe) {
+      this.logger.warn(`Receita com ID ${id} não encontrada para remoção`);
+      throw new NotFoundException(`Receita com ID ${id} não encontrada`);
+    }
+    await this.recipeRepository.deleteById(id);
   }
 
   async print(id: number): Promise<Buffer> {

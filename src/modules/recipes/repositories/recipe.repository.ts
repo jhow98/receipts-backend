@@ -23,7 +23,7 @@ export class RecipeRepository {
         'recipe.preparation_time_minutes',
         'recipe.servings',
       ])
-      .where('recipe.userId = :userId', { userId })
+      .where('recipe.user_id = :userId', { userId })
       .getMany();
   }
 

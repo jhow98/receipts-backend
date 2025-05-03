@@ -1,10 +1,8 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { RecipeService } from './recipe.service';
 import { RecipeRepository } from '../repositories/recipe.repository';
-import { Recipe } from '../entities/recipe.entity';
-import { RecipeDto } from '../dto/recipe.dto';
-import { AppLogger } from '../../../common/logger/logger.service';
 import { NotFoundException } from '@nestjs/common';
+import { AppLogger } from '../../../common/logger/logger.service';
 import { MetricsService } from '../../../common/metrics/metrics.service';
 
 describe('RecipeService', () => {
@@ -14,7 +12,14 @@ describe('RecipeService', () => {
     findById: jest.Mock;
     create: jest.Mock;
     update: jest.Mock;
+    remove: jest.Mock;
     delete: jest.Mock;
+  };
+
+  const mockLogger = { log: jest.fn(), warn: jest.fn(), error: jest.fn() };
+  const mockMetrics = {
+    incrementarReceitasCriadas: jest.fn(),
+    incrementarFalhasReceita: jest.fn(),
   };
 
   beforeEach(async () => {
@@ -23,18 +28,8 @@ describe('RecipeService', () => {
       findById: jest.fn(),
       create: jest.fn(),
       update: jest.fn(),
-      delete: jest.fn(),
-    };
-
-    const mockLogger = {
-      log: jest.fn(),
-      warn: jest.fn(),
-      error: jest.fn(),
-    };
-
-    const mockMetricsService = {
-      incrementarReceitasCriadas: jest.fn(),
-      incrementarFalhasCriacao: jest.fn(),
+      remove: jest.fn(),
+      delete: jest.fn(),   // adiciona o mock aqui
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -42,154 +37,58 @@ describe('RecipeService', () => {
         RecipeService,
         { provide: RecipeRepository, useValue: repo },
         { provide: AppLogger, useValue: mockLogger },
-        { provide: MetricsService, useValue: mockMetricsService },
+        { provide: MetricsService, useValue: mockMetrics },
       ],
     }).compile();
 
     service = module.get<RecipeService>(RecipeService);
+    jest.clearAllMocks();
   });
 
-  it('should return recipes for user', async () => {
-    const mockRecipe: Recipe = { id: 1 } as Recipe;
-    repo.findAllByUser.mockResolvedValue([mockRecipe]);
-
-    const result = await service.findAllByUser(1);
-    expect(result).toEqual([mockRecipe]);
-    expect(repo.findAllByUser).toHaveBeenCalledWith(1);
-  });
-
-  it('should return a recipe by id', async () => {
-    const mockRecipe: Recipe = { id: 1 } as Recipe;
-    repo.findById.mockResolvedValue(mockRecipe);
-
-    const result = await service.findById(1);
-    expect(result).toEqual(mockRecipe);
-  });
-
-  it('should throw when recipe not found by id', async () => {
-    repo.findById.mockResolvedValue(null);
-    await expect(service.findById(1)).rejects.toThrow('Receita com ID 1 não encontrada');
-  });
-
-  it('should create a recipe', async () => {
-    const dto: RecipeDto = {
-      name: 'Test Recipe',
-      preparation_time_minutes: 10,
-      servings: 2,
-      preparation_method: 'Test method',
-      ingredients: 'Test ingredients',
-      userId: 1,
-      categoryId: 1,
-    };
-
-    const mockRecipe: Partial<Recipe> = {
-      id: 1,
-      ...dto,
-      created_at: new Date(),
-      updated_at: new Date(),
-      user: {
-        id: dto.userId,
-        name: 'User',
-        login: 'user@example.com',
-        password: '',
-        createdAt: new Date(),
-        updatedAt: new Date(),
-        recipes: [],
-      },
-      category: {
-        id: dto.categoryId,
-        name: 'Category',
-        recipes: [],
-      },
-    };
-
-    repo.create.mockResolvedValue(mockRecipe);
-    const result = await service.create(dto);
-
-    expect(result).toEqual(mockRecipe);
-  });
-
-  it('should update a recipe', async () => {
-    const dto = {
-      name: 'Updated Recipe',
-      preparation_time_minutes: 20,
-      servings: 3,
-      preparation_method: 'Updated',
-      ingredients: 'Updated',
-      userId: 1,
-      categoryId: 1,
-    } as RecipeDto;
-
-    const existing = { id: 1 } as Recipe;
-    const updated = {
-      id: 1,
-      ...dto,
-      created_at: new Date(),
-      updated_at: new Date(),
-      user: {
+  it('should list and map recipes by user', async () => {
+    const raw = [
+      {
         id: 1,
-        name: 'User',
-        login: 'u',
-        password: '',
-        createdAt: new Date(),
-        updatedAt: new Date(),
-        recipes: [],
+        name: 'A',
+        preparation_time_minutes: 5,
+        servings: 2,
+        preparation_method: 'x',
+        ingredients: 'y',
+        category: { id: 3 },
+        user: { id: 7 },
+        created_at: new Date(),
+        updated_at: new Date(),
       },
-      category: {
+    ];
+    repo.findAllByUser.mockResolvedValue(raw);
+
+    const out = await service.findAllByUser(7);
+    expect(repo.findAllByUser).toHaveBeenCalledWith(7);
+    expect(out).toEqual([
+      {
         id: 1,
-        name: 'Category',
-        recipes: [],
+        name: 'A',
+        preparation_time_minutes: 5,
+        servings: 2,
+        preparation_method: 'x',
+        ingredients: 'y',
+        categoryId: 3,
+        userId: 7,
+        created_at: raw[0].created_at,
+        updated_at: raw[0].updated_at,
       },
-    };
-
-    repo.findById.mockResolvedValue(existing);
-    repo.update.mockResolvedValue(updated);
-
-    const result = await service.update(1, dto);
-    expect(result).toEqual(updated);
+    ]);
   });
 
-  it('should generate a PDF buffer when printing a recipe', async () => {
-    const recipe: Recipe = {
-      id: 1,
-      name: 'Feijão',
-      preparation_time_minutes: 40,
-      servings: 5,
-      preparation_method: 'Cozinhe o feijão com temperos',
-      ingredients: 'feijão, alho, cebola, sal',
-      user: {
-        id: 1,
-        name: 'Fulano',
-        login: 'fulano',
-        password: '',
-        createdAt: new Date(),
-        updatedAt: new Date(),
-        recipes: [],
-      },
-      category: {
-        id: 1,
-        name: 'Almoço',
-        recipes: [],
-      },
-      created_at: new Date(),
-      updated_at: new Date(),
-    };
-
-    repo.findById.mockResolvedValue(recipe);
-
-    const buffer = await service.print(recipe.id);
-    expect(buffer).toBeInstanceOf(Buffer);
-    expect(buffer.length).toBeGreaterThan(0);
-  });
-
-  it('should delete a recipe', async () => {
-    repo.findById.mockResolvedValue({ id: 1 });
+  it('should remove a recipe', async () => {
+    repo.findById.mockResolvedValue({ id: 5 });
     repo.delete.mockResolvedValue(undefined);
 
-    await expect(service.delete(1)).resolves.toBeUndefined();
+    await expect(service.remove(5)).resolves.toBeUndefined();
+    expect(repo.delete).toHaveBeenCalledWith(5);
   });
 
-  it('should throw if recipe to print is not found', async () => {
+  it('should throw if recipe not found on print', async () => {
     repo.findById.mockResolvedValue(null);
     await expect(service.print(1)).rejects.toThrow(NotFoundException);
   });

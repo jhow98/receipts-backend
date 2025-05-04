@@ -21,11 +21,13 @@ export class RecipeService {
     private readonly metricsService: MetricsService,
   ) {}
 
-  async findAllByUser(userId: number): Promise<any[]> {
-    this.logger.log(`Buscando todas as receitas do usuário ${userId}`);
-    const recipes = await this.recipeRepository.findAllByUser(userId);
-
-    return recipes.map((r) => ({
+  async findAllByUser(userId: number, name?: string): Promise<any[]> {
+    this.logger.log(
+      `Buscando receitas do usuário ${userId}` +
+        (name ? ` filtrando por nome="${name}"` : '')
+    )
+    const recipes = await this.recipeRepository.findAllByUser(userId, name)
+    return recipes.map(r => ({
       id: r.id,
       name: r.name,
       preparation_time_minutes: r.preparation_time_minutes,
@@ -33,20 +35,30 @@ export class RecipeService {
       preparation_method: r.preparation_method,
       ingredients: r.ingredients,
       categoryId: r.category?.id,
+      author: r.user.name,
       userId: r.user.id,
       created_at: r.created_at,
       updated_at: r.updated_at,
-    }));
+    }))
   }
 
-  async findById(id: number): Promise<Recipe> {
-    this.logger.log(`Buscando receita com ID ${id}`);
-    const recipe = await this.recipeRepository.findById(id);
-    if (!recipe) {
-      this.logger.warn(`Receita com ID ${id} não encontrada`);
-      throw new NotFoundException(`Receita com ID ${id} não encontrada`);
+  async findById(id: number): Promise<any> {
+    this.logger.log(`Buscando receita id=${id}`)
+    const r = await this.recipeRepository.findById(id)
+    if (!r) throw new NotFoundException('Receita não existe.')
+    return {
+      id: r.id,
+      name: r.name,
+      preparation_time_minutes: r.preparation_time_minutes,
+      servings: r.servings,
+      preparation_method: r.preparation_method,
+      ingredients: r.ingredients,
+      categoryId: r.category?.id,
+      author: r.user.name,
+      userId: r.user.id,
+      created_at: r.created_at,
+      updated_at: r.updated_at,
     }
-    return recipe;
   }
 
   async create(data: RecipeDto & { userId: number }): Promise<Recipe> {

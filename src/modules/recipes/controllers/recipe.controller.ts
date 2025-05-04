@@ -12,6 +12,7 @@ import {
   Res,
   Req,
   UseGuards,
+  Query,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { Response, Request } from 'express';
@@ -57,26 +58,25 @@ export class RecipeController {
   }
 
   @Get()
-  @ApiOperation({ summary: 'List all recipes of the logged‑in user' })
+  @ApiOperation({ summary: 'List all recipes of the logged‑in user, optionally filtering by name' })
   @ApiResponse({ status: 200, description: 'List of recipes returned.' })
   @ApiResponse({ status: 204, description: 'No recipes found.' })
   async findAll(
     @Req() req: Request & { user: { id: number } },
     @Res() res: Response,
+    @Query('name') name?: string,
   ) {
-    const userId = req.user.id;
-    this.logger.log(
-      `Recebida requisição para listar receitas do usuário ${userId}`,
-    );
-
-    const recipes = await this.recipeService.findAllByUser(userId);
+    const userId = req.user.id
+    this.logger.log(`Recebida requisição para listar receitas do usuário ${userId}` + (name ? ` filtrando por nome="${name}"` : ''))
+  
+    const recipes = await this.recipeService.findAllByUser(userId, name)
     if (!recipes.length) {
-      this.logger.log('Nenhuma receita encontrada');
-      return res.status(HttpStatus.NO_CONTENT).send();
+      this.logger.log('Nenhuma receita encontrada')
+      return res.status(HttpStatus.NO_CONTENT).send()
     }
-
-    this.logger.log(`Retornando ${recipes.length} receitas`);
-    return res.status(HttpStatus.OK).json(recipes);
+  
+    this.logger.log(`Retornando ${recipes.length} receitas`)
+    return res.status(HttpStatus.OK).json(recipes)
   }
 
   @Get(':id')

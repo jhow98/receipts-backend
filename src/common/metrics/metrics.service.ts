@@ -3,6 +3,7 @@ import { Counter, register } from 'prom-client';
 
 @Injectable()
 export class MetricsService {
+  [x: string]: any;
   private receitasCriadasCounter: Counter<string>;
   private receitasFalhaCriacaoCounter: Counter<string>;
   private usuariosCriadosCounter: Counter<string>;

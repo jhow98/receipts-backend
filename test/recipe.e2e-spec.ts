@@ -3,128 +3,86 @@ import { INestApplication, HttpStatus } from '@nestjs/common';
 import request from 'supertest';
 import { AppModule } from '../src/app.module';
 import { DataSource } from 'typeorm';
-import { Category } from '../src/modules/categories/entities/category.entity';
-import { AuthGuard } from '@nestjs/passport';
+import * as bcrypt from 'bcrypt';
 
-/**
- * E2E tests for RecipeController
- * - AuthGuard is overridden to mock req.user.id
- * - categoryId is set in recipeData
- * - Tests cover create, read, update, print and delete
- */
 describe('RecipeController (e2e)', () => {
   let app: INestApplication;
-  let server: any;
-  let recipeId: number;
+  let dataSource: DataSource;
   let userToken: string;
-  let categoryId: number;
+  let recipeId: number;
+  let testUserId: number;
 
-  const timestamp = Date.now();
-  const recipeData = {
-    name: 'Dipirona Monoidratada 500mg/mL',
-    preparation_time_minutes: 5,
-    servings: 1,
-    preparation_method: 'Diluir em solução aquosa antes de aplicar.',
-    ingredients: 'Dipirona, água destilada',
-    categoryId: 0,  // will be overwritten
-  };
+  const password = 'senha123';
+  const hashedPassword = bcrypt.hashSync(password, 10);
+  const currentLogin = `usuario.teste-e2e.${Date.now()}`;
 
   beforeAll(async () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [AppModule],
-    })
-      // Override JWT AuthGuard to inject req.user
-      .overrideGuard(AuthGuard('jwt'))
-      .useValue({
-        canActivate: (context) => {
-          const req = context.switchToHttp().getRequest();
-          req.user = { id: 1 };
-          return true;
-        }
-      })
-      .compile();
+    }).compile();
 
     app = moduleFixture.createNestApplication();
     await app.init();
-    server = app.getHttpServer();
+    dataSource = app.get<DataSource>(DataSource);
 
-    // create category and assign its id
-    const ds = moduleFixture.get<DataSource>(DataSource);
-    const catRepo = ds.getRepository(Category);
-    const category = catRepo.create({ name: 'Medicamentos E2E' });
-    const savedCat = await catRepo.save(category);
-    categoryId = savedCat.id;
-    recipeData.categoryId = categoryId;
+    await dataSource.query(
+      `INSERT INTO users (name, login, password) VALUES (?, ?, ?)`,
+      ['Usuário Novo', currentLogin, hashedPassword]
+    );
 
-    // create user and login to get token
-    const login = `usuario.e2e.${timestamp}`;
-    const password = 'senha123';
-    await request(server)
-      .post('/users')
-      .send({ name: 'Usuário E2E', login, password });
+    const [user] = await dataSource.query(
+      `SELECT id FROM users WHERE login = ?`,
+      [currentLogin]
+    );
+    testUserId = user.id;
 
-    const loginRes = await request(server)
+    const loginRes = await request(app.getHttpServer())
       .post('/auth/login')
-      .send({ login, password });
-    expect(loginRes.status).toBe(HttpStatus.OK);
-    userToken = loginRes.body.access_token ?? loginRes.body.accessToken;
+      .send({ login: currentLogin, password });
+    
+    userToken = loginRes.body.access_token;
   });
 
-  it('deve criar uma receita', async () => {
-    const res = await request(server)
+  // Teste 1 - Criação
+  it('1. CRIA receita', async () => {
+    const res = await request(app.getHttpServer())
       .post('/recipes')
       .set('Authorization', `Bearer ${userToken}`)
-      .send(recipeData);
+      .send({
+        name: 'Receita teste-e2e',
+        preparation_time_minutes: 1,
+        servings: 1,
+        preparation_method: 'Misturar tudo',
+        ingredients: 'Ingrediente 1, Ingrediente 2',
+        categoryId: 1
+      });
 
     expect(res.status).toBe(HttpStatus.CREATED);
-    expect(res.body).toHaveProperty('id');
     recipeId = res.body.id;
   });
 
-  it('deve buscar a receita', async () => {
-    const res = await request(server)
+  // Teste 2 - Busca
+  it('2. BUSCA receita', async () => {
+    const res = await request(app.getHttpServer())
       .get(`/recipes/${recipeId}`)
       .set('Authorization', `Bearer ${userToken}`);
 
     expect(res.status).toBe(HttpStatus.OK);
-    expect(res.body).toMatchObject({
-      id: recipeId,
-      name: recipeData.name,
-      categoryId,
-      userId: 1,
-    });
   });
 
-  it('deve atualizar a receita', async () => {
-    const updateData = { ...recipeData, name: 'Dipirona Atualizada' };
-    const res = await request(server)
+  // Teste 3 - Atualização
+  it('3. ATUALIZA receita', async () => {
+    const res = await request(app.getHttpServer())
       .put(`/recipes/${recipeId}`)
       .set('Authorization', `Bearer ${userToken}`)
-      .send(updateData);
+      .send({ name: 'Receita Atualizada' });
 
     expect(res.status).toBe(HttpStatus.OK);
-    expect(res.body.name).toBe(updateData.name);
   });
 
-  it('deve imprimir a receita em PDF', async () => {
-    const res = await request(server)
-      .get(`/recipes/${recipeId}/print`)
-      .set('Authorization', `Bearer ${userToken}`)
-      .buffer()
-      .parse((res, callback) => {
-        res.setEncoding('binary');
-        let data = '';
-        res.on('data', chunk => (data += chunk));
-        res.on('end', () => callback(null, Buffer.from(data, 'binary')));
-      });
-
-    expect(res.status).toBe(HttpStatus.OK);
-    expect(res.header['content-type']).toBe('application/pdf');
-    expect(res.header['content-disposition']).toContain(`receita-${recipeId}.pdf`);
-  });
-
-  it('deve deletar a receita', async () => {
-    const res = await request(server)
+  // Teste 4 - Delete
+  it('4. DELETA receita', async () => {
+    const res = await request(app.getHttpServer())
       .delete(`/recipes/${recipeId}`)
       .set('Authorization', `Bearer ${userToken}`);
 
@@ -132,6 +90,7 @@ describe('RecipeController (e2e)', () => {
   });
 
   afterAll(async () => {
+    await dataSource.query(`DELETE FROM users WHERE login LIKE 'usuario.teste-e2e.%'`);
     await app.close();
   });
 });

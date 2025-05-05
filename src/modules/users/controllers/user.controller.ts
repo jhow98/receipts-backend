@@ -21,6 +21,7 @@ import {
 import { AppLogger } from '../../../common/logger/logger.service';
 import { UserResponseDto } from '../dto/user-response.dto';
 import { MetricsService } from '../../../common/metrics/metrics.service';
+
 @ApiTags('Users')
 @Controller('users')
 export class UserController {
@@ -28,7 +29,6 @@ export class UserController {
     private readonly userService: UserService,
     private readonly logger: AppLogger,
     private readonly metricsService: MetricsService,
-    
   ) {}
 
   @Post()
@@ -51,6 +51,7 @@ export class UserController {
   @ApiOperation({ summary: 'List all users' })
   async findAll(): Promise<User[]> {
     this.logger.log('Listando todos os usuários');
+    this.metricsService.incrementarUsuariosListados();
     return await this.userService.findAll();
   }
 
@@ -61,6 +62,7 @@ export class UserController {
   @ApiResponse({ status: 404, description: 'User not found' })
   async findById(@Param('id') id: number): Promise<User> {
     this.logger.log(`Buscando usuário com ID ${id}`);
+    this.metricsService.incrementarUsuariosBuscados();
     return await this.userService.findById(id);
   }
 
@@ -72,6 +74,7 @@ export class UserController {
   @ApiResponse({ status: 404, description: 'User not found' })
   async delete(@Param('id') id: number): Promise<void> {
     this.logger.log(`Solicitação para deletar usuário com ID ${id}`);
+    this.metricsService.incrementarUsuariosDeletados();
     return await this.userService.delete(id);
   }
 }

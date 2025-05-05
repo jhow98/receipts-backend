@@ -6,7 +6,6 @@ import { MetricsModule } from './common/metrics/metrics.module';
 import { MetricsService } from './common/metrics/metrics.service';
 import { WinstonModule } from 'nest-winston';
 import { winstonConfig } from './common/logger/winston.config';
-
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { RecipeModule } from './modules/recipes/recipe.module';
@@ -15,9 +14,16 @@ import { AuthModule } from './modules/auth/auth.module';
 import { CategoryModule } from './modules/categories/category.module';
 
 @Module({
-  imports: [DatabaseModule, CategoryModule, AuthModule, WinstonModule.forRoot(winstonConfig),LoggerModule, RecipeModule, UserModule,RecipeModule, MetricsModule, ConfigModule.forRoot({
-    isGlobal: true,
-  }),],
+  imports: [
+    DatabaseModule,
+    CategoryModule,
+    AuthModule,
+    WinstonModule.forRoot(winstonConfig),
+    UserModule,
+    RecipeModule,
+    MetricsModule, 
+    ConfigModule.forRoot({ isGlobal: true }),
+  ],
   controllers: [AppController],
   providers: [AppService, MetricsService],
   exports: [MetricsService],

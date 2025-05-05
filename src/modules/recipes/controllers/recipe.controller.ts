@@ -1,132 +1,108 @@
 import {
-  Body,
   Controller,
-  Delete,
   Get,
-  HttpCode,
-  HttpException,
-  HttpStatus,
-  Param,
   Post,
   Put,
-  Res,
+  Delete,
+  Body,
+  Param,
   Req,
   UseGuards,
+  NotFoundException,
+  ParseIntPipe,
+  HttpCode,
   Query,
+  HttpException,
+  HttpStatus,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
-import { Response, Request } from 'express';
 import { RecipeService } from '../services/recipe.service';
 import { RecipeDto } from '../dto/recipe.dto';
-import {
-  ApiTags,
-  ApiResponse,
-  ApiOperation,
-  ApiParam,
-  ApiBody,
-} from '@nestjs/swagger';
 import { AppLogger } from '../../../common/logger/logger.service';
+import { MetricsService } from '../../../common/metrics/metrics.service';
 
-@ApiTags('Recipes')
-@UseGuards(AuthGuard('jwt'))
 @Controller('recipes')
+@UseGuards(AuthGuard('jwt'))
 export class RecipeController {
   constructor(
     private readonly recipeService: RecipeService,
     private readonly logger: AppLogger,
-  ) {}
-
-  @Post()
-  @ApiOperation({ summary: 'Create a new recipe' })
-  @ApiResponse({ status: 201, description: 'Recipe created successfully.' })
-  @ApiBody({ type: RecipeDto })
-  async create(
-    @Req() req: Request & { user: { id: number } },
-    @Body() recipeDto: RecipeDto,
+    private readonly metrics: MetricsService,
   ) {
-    const userId = req.user.id;
-    this.logger.log(
-      `Recebida requisição para criar receita do usuário ${userId}: ${JSON.stringify(
-        recipeDto,
-      )}`,
-    );
-    const result = await this.recipeService.create({
-      ...recipeDto,
-      userId,
-    });
-    return result;
+    this.logger.log(RecipeController.name);
   }
 
   @Get()
-  @ApiOperation({ summary: 'List all recipes of the logged‑in user, optionally filtering by name' })
-  @ApiResponse({ status: 200, description: 'List of recipes returned.' })
-  @ApiResponse({ status: 204, description: 'No recipes found.' })
+  @HttpCode(200)
   async findAll(
-    @Req() req: Request & { user: { id: number } },
-    @Res() res: Response,
+    @Req() req: any,
     @Query('name') name?: string,
   ) {
-    const userId = req.user.id
-    this.logger.log(`Recebida requisição para listar receitas do usuário ${userId}` + (name ? ` filtrando por nome="${name}"` : ''))
-  
-    const recipes = await this.recipeService.findAllByUser(userId, name)
-    if (!recipes.length) {
-      this.logger.log('Nenhuma receita encontrada')
-      return res.status(HttpStatus.NO_CONTENT).send()
+    this.logger.log(`Listando receitas do user ${req.user.id} (filtro: ${name})`);
+    const list = await this.recipeService.findAllByUser(req.user.id, name);
+    if (list.length === 0) {
+      this.logger.log(`Nenhuma receita encontrada para user ${req.user.id}`);
+      throw new HttpException('', HttpStatus.NO_CONTENT);
     }
-  
-    this.logger.log(`Retornando ${recipes.length} receitas`)
-    return res.status(HttpStatus.OK).json(recipes)
+    this.logger.log(`Retornando ${list.length} receitas para user ${req.user.id}`);
+    return list;
   }
 
   @Get(':id')
-  @ApiOperation({ summary: 'Get a recipe by ID' })
-  @ApiParam({ name: 'id', type: Number })
-  @ApiResponse({ status: 200, description: 'Recipe found.' })
-  @ApiResponse({ status: 404, description: 'Recipe not found.' })
-  async findOne(@Param('id') id: number, @Res() res: Response) {
+  async findOne(
+    @Param('id', ParseIntPipe) id: number,
+    @Req() req: any,
+  ) {
+    this.logger.log(`Buscando receita ${id} para user ${req.user.id}`);
     const recipe = await this.recipeService.findById(id);
-    return res.status(HttpStatus.OK).json(recipe);
+    if (recipe.user.id !== req.user.id) {
+      this.logger.warn(`Acesso negado à receita ${id} por user ${req.user.id}`);
+      throw new NotFoundException(`Receita não encontrada`);
+    }
+    return recipe;
+  }
+
+  @Post()
+  async create(@Req() req: any, @Body() dto: RecipeDto) {
+    this.logger.log(`Criando receita para user ${req.user.id}: ${dto.name}`);
+    try {
+      const created = await this.recipeService.create({ ...dto, userId: req.user.id });
+      this.metrics.incrementarReceitasCriadas();
+      return created;
+    } catch (err) {
+      this.metrics.incrementarFalhasReceita();
+      throw err;
+    }
   }
 
   @Put(':id')
-  @ApiOperation({ summary: 'Update a recipe' })
-  @ApiParam({ name: 'id', type: Number })
-  @ApiBody({ type: RecipeDto })
-  @ApiResponse({ status: 200, description: 'Recipe updated.' })
-  @ApiResponse({ status: 404, description: 'Recipe not found.' })
   async update(
-    @Param('id') id: number,
-    @Body() recipeDto: RecipeDto,
-  ): Promise<any> {
-    return this.recipeService.update(id, recipeDto);
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: RecipeDto,
+    @Req() req: any,
+  ) {
+    this.logger.log(`Atualizando receita ${id} para user ${req.user.id}`);
+    const recipe = await this.recipeService.findById(id);
+    if (recipe.user.id !== req.user.id) {
+      this.logger.warn(`Usuário ${req.user.id} não autorizado a atualizar receita ${id}`);
+      throw new NotFoundException(`Receita não encontrada`);
+    }
+    return this.recipeService.update(id, dto);
   }
 
   @Delete(':id')
   @HttpCode(204)
-  @ApiOperation({ summary: 'Delete a recipe' })
-  @ApiParam({ name: 'id', type: Number })
-  @ApiResponse({ status: 204, description: 'Recipe deleted.' })
-  @ApiResponse({ status: 404, description: 'Recipe not found.' })
-  async remove(@Param('id') id: number) {
+  async remove(
+    @Param('id', ParseIntPipe) id: number,
+    @Req() req: any,
+  ) {
+    this.logger.log(`Removendo receita ${id} para user ${req.user.id}`);
+    const recipe = await this.recipeService.findById(id);
+    if (recipe.user.id !== req.user.id) {
+      this.logger.warn(`Usuário ${req.user.id} não autorizado a deletar receita ${id}`);
+      throw new NotFoundException(`Receita não encontrada`);
+    }
     await this.recipeService.remove(id);
-  }
-
-  @Get(':id/print')
-  @ApiOperation({ summary: 'Print a recipe as PDF' })
-  @ApiParam({ name: 'id', type: Number })
-  @ApiResponse({ status: 200, description: 'PDF returned.' })
-  @ApiResponse({ status: 404, description: 'Recipe not found.' })
-  async print(@Param('id') id: number, @Res() res: Response) {
-    this.logger.log(`Recebida requisição para imprimir receita com ID ${id}`);
-    const pdfBuffer = await this.recipeService.print(id);
-
-    res.set({
-      'Content-Type': 'application/pdf',
-      'Content-Disposition': `attachment; filename=receita-${id}.pdf`,
-      'Content-Length': pdfBuffer.length,
-    });
-
-    return res.send(pdfBuffer);
+    this.logger.log(`Receita ${id} removida`);
   }
 }

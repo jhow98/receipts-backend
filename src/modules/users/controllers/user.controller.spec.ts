@@ -25,6 +25,9 @@ describe('UserController', () => {
 
   const mockMetricsService = {
     incrementarUsuariosCriados: jest.fn(),
+    incrementarUsuariosListados: jest.fn(),
+    incrementarUsuariosBuscados: jest.fn(),
+    incrementarUsuariosDeletados: jest.fn(),
   };
 
   beforeEach(async () => {
@@ -48,6 +51,7 @@ describe('UserController', () => {
 
     const result = await controller.create(dto);
     expect(result).toEqual(resultMock);
+    expect(mockMetricsService.incrementarUsuariosCriados).toHaveBeenCalled();
   });
 
   it('should return all users', async () => {
@@ -56,6 +60,7 @@ describe('UserController', () => {
 
     const result = await controller.findAll();
     expect(result).toEqual(users);
+    expect(mockMetricsService.incrementarUsuariosListados).toHaveBeenCalled();
   });
 
   it('should return user by id', async () => {
@@ -64,16 +69,19 @@ describe('UserController', () => {
 
     const result = await controller.findById(1);
     expect(result).toEqual(user);
+    expect(mockMetricsService.incrementarUsuariosBuscados).toHaveBeenCalled();
   });
 
   it('should call delete with correct ID', async () => {
     mockUserService.delete.mockResolvedValueOnce(undefined);
     await expect(controller.delete(1)).resolves.toBeUndefined();
     expect(service.delete).toHaveBeenCalledWith(1);
+    expect(mockMetricsService.incrementarUsuariosDeletados).toHaveBeenCalled();
   });
 
   it('should throw NotFoundException when deleting nonexistent user', async () => {
     mockUserService.delete.mockRejectedValueOnce(new NotFoundException());
     await expect(controller.delete(999)).rejects.toThrow(NotFoundException);
+    expect(mockMetricsService.incrementarUsuariosDeletados).toHaveBeenCalled();
   });
 });

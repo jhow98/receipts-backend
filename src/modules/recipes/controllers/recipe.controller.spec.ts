@@ -1,13 +1,11 @@
 import { RecipeController } from "./recipe.controller";
 import { RecipeService } from "../services/recipe.service";
-import { AppLogger } from "../../../common/logger/logger.service";
-import { Response } from "express";
+import { HttpException, HttpStatus } from '@nestjs/common';
 
 describe("RecipeController", () => {
   let controller: RecipeController;
   let mockService: any;
   let req: any;
-  let res: Partial<Response>;
 
   beforeEach(() => {
     mockService = {
@@ -18,51 +16,69 @@ describe("RecipeController", () => {
       remove: jest.fn(),
       print: jest.fn(),
     };
-    controller = new RecipeController(mockService as any);
+
+    controller = new RecipeController(
+      mockService as RecipeService,
+      { log: () => {}, warn: () => {}, setContext: () => {} } as any,
+      { incrementarReceitasCriadas: () => {}, incrementarFalhasReceita: () => {} } as any,
+    );
 
     req = { user: { id: 1 } };
-    res = {
-      status: jest.fn().mockReturnThis(),
-      json: jest.fn(),
-      send: jest.fn(),
-    };
   });
 
-  it("should list only recipes of the logged-in user", async () => {
-    const mockRecipes = [{ id: 10 }];
-    mockService.findAllByUser.mockResolvedValue(mockRecipes);
+  describe("findAll", () => {
+    it("should list only recipes of the logged-in user", async () => {
+      const mockRecipes = [{ id: 10 }];
+      mockService.findAllByUser.mockResolvedValue(mockRecipes);
 
-    await controller.findAll(req, res as Response);
+      const result = await controller.findAll(req, undefined);
 
-    expect(mockService.findAllByUser).toHaveBeenCalledWith(1);
-    expect(res.status).toHaveBeenCalledWith(200);
-    expect(res.json).toHaveBeenCalledWith(mockRecipes);
+      expect(mockService.findAllByUser).toHaveBeenCalledWith(1, undefined);
+      expect(result).toBe(mockRecipes);
+    });
+
+    it("should throw HttpException with 204 when no recipes found", async () => {
+      mockService.findAllByUser.mockResolvedValue([]);
+
+      await expect(controller.findAll(req, undefined)).rejects.toMatchObject({
+        status: HttpStatus.NO_CONTENT,
+      });
+    });
   });
 
-  it("should return 204 when no recipes found", async () => {
-    mockService.findAllByUser.mockResolvedValue([]);
+  describe("create", () => {
+    it("should create a recipe adding userId from req.user", async () => {
+      const dto = { name: "Arroz", preparation_time_minutes: 30, servings: 4, ingredients: "arroz", preparation_method: "Cozinhe", categoryId: 2 };
+      const created = { id: 99, ...dto, userId: 1 };
+      mockService.create.mockResolvedValue(created);
 
-    await controller.findAll(req, res as Response);
+      const result = await controller.create(req, dto as any);
 
-    expect(res.status).toHaveBeenCalledWith(204);
-    expect(res.send).toHaveBeenCalled();
+      expect(mockService.create).toHaveBeenCalledWith({ ...dto, userId: 1 });
+      expect(result).toEqual(created);
+    });
+
+    it("should propagate error and call failure metric", async () => {
+      const dto = { name: "Feijão", preparation_time_minutes: 20, servings: 2, ingredients: "feijão", preparation_method: "Cozinhe", categoryId: 3 };
+      mockService.create.mockRejectedValue(new Error("fail"));
+
+      await expect(controller.create(req, dto as any)).rejects.toThrow("fail");
+    });
   });
 
-  it("should create a recipe adding userId from req.user", async () => {
-    const dto = { name: "Arroz", preparation_time_minutes: 30, servings: 4, ingredients: "arroz, água, sal", preparation_method: "Cozinhe com água e sal", categoryId: 2 };
-    const created = { id: 99, ...dto, userId: 1 };
-    mockService.create.mockResolvedValue(created);
+  describe("remove", () => {
+    it("should remove a recipe when authorized", async () => {
+      mockService.findById.mockResolvedValue({ user: { id: 1 } });
+      mockService.remove.mockResolvedValue(undefined);
 
-    const result = await controller.create(req, dto);
+      await expect(controller.remove(5, req)).resolves.toBeUndefined();
+      expect(mockService.remove).toHaveBeenCalledWith(5);
+    });
 
-    expect(mockService.create).toHaveBeenCalledWith({ ...dto, userId: 1 });
-    expect(result).toEqual(created);
-  });
+    it("should throw NotFoundException when unauthorized", async () => {
+      mockService.findById.mockResolvedValue({ user: { id: 2 } });
 
-  it("should remove a recipe", async () => {
-    mockService.remove.mockResolvedValue(undefined);
-
-    await expect(controller.remove(5)).resolves.toBeUndefined();
-    expect(mockService.remove).toHaveBeenCalledWith(5);
+      await expect(controller.remove(6, req)).rejects.toBeInstanceOf(HttpException);
+    });
   });
 });

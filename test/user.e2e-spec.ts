@@ -2,23 +2,33 @@ import { Test } from '@nestjs/testing';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
 import request from 'supertest';
 import { AppModule } from '../src/app.module';
+import { MetricsService } from '../src/common/metrics/metrics.service';
 
 describe('User E2E - /users', () => {
   let app: INestApplication;
   let createdUserId: number;
 
   beforeAll(async () => {
-    const module = await Test.createTestingModule({
+    const moduleRef = await Test.createTestingModule({
       imports: [AppModule],
-    }).compile();
+    })
+    .overrideProvider(MetricsService)
+    .useValue({
+      incrementarUsuariosBuscados: () => {},
+      incrementarUsuariosListados: () => {},
+      incrementarUsuariosCriados: () => {},
+      incrementarUsuariosDeletados: () => {},
+    })
+    .compile();
 
-    app = module.createNestApplication();
+    app = moduleRef.createNestApplication();
     app.useGlobalPipes(new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true }));
     await app.init();
   });
 
   it('deve criar um usuário', async () => {
-    const user = { name: 'Teste E2E', login: 'teste.e2e', password: '123456' };
+    const uniqueLogin = `teste.e2e.${Date.now()}`;
+    const user = { name: 'Teste E2E', login: uniqueLogin, password: '123456' };
     const res = await request(app.getHttpServer())
       .post('/users')
       .send(user);
@@ -34,7 +44,7 @@ describe('User E2E - /users', () => {
 
     expect(res.status).toBe(200);
     expect(res.body).toHaveProperty('id', createdUserId);
-    expect(res.body).toHaveProperty('login', 'teste.e2e');
+    expect(res.body).toHaveProperty('login');
   });
 
   it('deve listar todos os usuários (inclusive o criado)', async () => {

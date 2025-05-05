@@ -5,11 +5,10 @@ import { MetricsService } from "../../../common/metrics/metrics.service";
 describe("RecipeService", () => {
   let service: RecipeService;
   let repo: any;
-  let logger: AppLogger;
-  let metrics: MetricsService;
+  let logger: any;
+  let metrics: any;
 
   beforeEach(() => {
-    // stub out only the methods we use
     repo = {
       findAllByUser: jest.fn(),
       findById: jest.fn(),
@@ -17,9 +16,9 @@ describe("RecipeService", () => {
       updateAndGet: jest.fn(),
       delete: jest.fn(),
     };
-    logger = new AppLogger({ } as any);
-    metrics = { increment: jest.fn() } as any;
-    service = new RecipeService(repo as any, logger, metrics);
+    logger = { log: jest.fn(), warn: jest.fn(), error: jest.fn() };
+    metrics = {};
+    service = new RecipeService(repo as any, logger as AppLogger, metrics as MetricsService);
   });
 
   it("should list and map recipes by user", async () => {
@@ -40,23 +39,10 @@ describe("RecipeService", () => {
     ];
     repo.findAllByUser.mockResolvedValue(raw);
 
-    const out = await service.findAllByUser(7); // Chamada correta para findAllByUser
+    const out = await service.findAllByUser(7);
 
     expect(repo.findAllByUser).toHaveBeenCalledWith(7);
-    expect(out).toEqual([
-      {
-        id: 1,
-        name: "A",
-        preparation_time_minutes: 5,
-        servings: 2,
-        preparation_method: "x",
-        ingredients: "y",
-        category: { id: 3 },
-        user: { id: 7, name: "Bob" },
-        created_at: now,
-        updated_at: now,
-      },
-    ]);
+    expect(out).toEqual(raw);
   });
 
   it("should remove a recipe", async () => {

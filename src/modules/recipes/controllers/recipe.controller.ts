@@ -55,11 +55,29 @@ export class RecipeController {
   ) {
     this.logger.log(`Buscando receita ${id} para user ${req.user.id}`);
     const recipe = await this.recipeService.findById(id);
+
     if (recipe.user.id !== req.user.id) {
       this.logger.warn(`Acesso negado à receita ${id} por user ${req.user.id}`);
       throw new NotFoundException(`Receita não encontrada`);
     }
-    return recipe;
+
+    const safeUserData = { name: recipe.user.name };
+    const safeCategory = { id: recipe.category.id, name: recipe.category.name };
+
+    return {
+      id: recipe.id,
+      name: recipe.name,
+      preparation_time_minutes: recipe.preparation_time_minutes,
+      servings: recipe.servings,
+      preparation_method: recipe.preparation_method,
+      ingredients: recipe.ingredients,
+      created_at: recipe.created_at,
+      updated_at: recipe.updated_at,
+      category: safeCategory,
+      user: safeUserData,
+      userId: recipe.userId,
+      categoryId: recipe.categoryId,
+    };
   }
 
   @Post()

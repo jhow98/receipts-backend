@@ -3,7 +3,7 @@ import { INestApplication, HttpStatus } from '@nestjs/common';
 import request from 'supertest';
 import { AppModule } from '../src/app.module';
 import { DataSource } from 'typeorm';
-import * as bcrypt from 'bcrypt';
+import bcrypt from 'bcrypt';
 
 describe('RecipeController (e2e)', () => {
   let app: INestApplication;

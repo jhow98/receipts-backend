@@ -83,6 +83,7 @@ Disponíveis em `/metrics`:
   - Cobrem serviços, regras de negócio e comportamentos isolados
 - **Testes e2e:** `npm run test:e2e`
   - Validam o comportamento dos endpoints da API
+  - Para rodar os e2e localmente, suba apenas o mysql com `docker-compose up -d mysql_db`, e execute `npm run test:e2e:local`
 - **Cobertura:** `npm run test:cov`
 
 ---
